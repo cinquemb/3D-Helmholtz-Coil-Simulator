@@ -20,8 +20,11 @@ import datetime
 import time
 
 #%% coil function
-def coil(color = 'k', I = 1, coilIntDiameter = 1, referencePosition=[0,0,0], wireDiameter=1, 
-         loopsInEachEvenLayer=1, evenLayers = 1, oddLayers = 1, collectionToAdd = magpy.Collection()):
+def coil(color='k', I=1, coilIntDiameter=1, referencePosition=[0,0,0],
+         wireDiameter=1, loopsInEachEvenLayer=1,
+         evenLayers=1, oddLayers=1,
+         collectionToAdd=None):
+
     """ 
     Return the model of a rolled coil around the 'z' axis.
     
@@ -53,51 +56,72 @@ def coil(color = 'k', I = 1, coilIntDiameter = 1, referencePosition=[0,0,0], wir
     """
     
      
-        
-    # Initialization for the loop
-    even = True                                                     # Flag if the coil rolling is in even format
-    singleCoilWidth = wireDiameter*loopsInEachEvenLayer   
-    centerPosition = referencePosition[2]                                    # The center position of the coil in Z
-    initPosEven = centerPosition - singleCoilWidth/2 + wireDiameter/2     # Initial position in the 'even' form of rolling the coil
-    initPosOdd = centerPosition - singleCoilWidth/2 + wireDiameter        # Initial position in the 'odd' form of rolling the coil
-    stepPos = wireDiameter                                          # The position increment
-    finalPosEven = centerPosition + singleCoilWidth/2 - wireDiameter/2 + stepPos    # Final position in the 'even' form of rolling the coil
-    finalPosOdd = centerPosition + singleCoilWidth/2 - wireDiameter + stepPos     # Final position in the 'odd' form of rolling the coil
-    stepDiameter = 2*(wireDiameter**2 - (wireDiameter/2)**2)**0.5   # The diameter increment
-    subLoops = np.int64(singleCoilWidth/wireDiameter)                     # The max value of the loops in the 'even' rolling, the odd max value is (subLoops - 1)
+
+    if collectionToAdd is None:
+        collectionToAdd = magpy.Collection()
+
+    even = True
+    singleCoilWidth = wireDiameter * loopsInEachEvenLayer
+    centerPosition = referencePosition[2]
+
+    initPosEven = centerPosition - singleCoilWidth/2 + wireDiameter/2
+    initPosOdd  = centerPosition - singleCoilWidth/2 + wireDiameter
+
+    stepPos = wireDiameter
+
+    finalPosEven = centerPosition + singleCoilWidth/2 - wireDiameter/2 + stepPos
+    finalPosOdd  = centerPosition + singleCoilWidth/2 - wireDiameter + stepPos
+
+    stepDiameter = np.sqrt(3)/2 * wireDiameter  # cleaner + same physics
+
+    subLoops = int(singleCoilWidth / wireDiameter)
+
     coilIntDiameter += wireDiameter
-    
+
     if loopsInEachEvenLayer == 1:
         nLoops = evenLayers + oddLayers
     else:
-        nLoops = loopsInEachEvenLayer*evenLayers + (loopsInEachEvenLayer-1)*oddLayers        # Total number of loops in each coil   
-    # ----------------------------
-    
-    
-    # Starting to roll the coil
-    while nLoops > 0:                                   # loop that counts the number of wireLoops already done
-        if (even == 1) | (singleCoilWidth == wireDiameter):                                                    # The statement that says if the rolling is in the 'even' or 'odd' form
-            zs = np.arange(initPosEven, finalPosEven, stepPos)      # The 'zs' is the variable that will be used for rolling loop position
-            for n in range(0,subLoops):                             
-                coilLoop = magpy.source.current.Circular(curr=I, dim=coilIntDiameter,pos=[0,0,zs[n]])
-                collectionToAdd.addSources(coilLoop)
-                nLoops = nLoops - 1
+        nLoops = loopsInEachEvenLayer*evenLayers + (loopsInEachEvenLayer-1)*oddLayers
+
+    # --- build loops ---
+    while nLoops > 0:
+
+        if even or singleCoilWidth == wireDiameter:
+            zs = np.arange(initPosEven, finalPosEven, stepPos)
+
+            for n in range(subLoops):
+                loop = magpy.current.Circle(
+                    current=I,
+                    diameter=coilIntDiameter,
+                    position=[0,0,zs[n]]
+                )
+                collectionToAdd.add(loop)
+
+                nLoops -= 1
                 if nLoops <= 0:
                     break
+
             even = False
-            coilIntDiameter = coilIntDiameter + stepDiameter
-            
-        else:                                              # The statement that says if the rolling is in the 'even' or 'odd' form
-            zs = np.arange(initPosOdd, finalPosOdd, stepPos)      # The 'zs' is the variable that will be used for rolling loop position
-            for n in range(0,subLoops-1):
-                coilLoop = magpy.source.current.Circular(curr=I, dim=coilIntDiameter,pos=[0,0,zs[n]])            
-                collectionToAdd.addSources(coilLoop)
-                nLoops = nLoops - 1
+            coilIntDiameter += stepDiameter
+
+        else:
+            zs = np.arange(initPosOdd, finalPosOdd, stepPos)
+
+            for n in range(subLoops-1):
+                loop = magpy.current.Circle(
+                    current=I,
+                    diameter=coilIntDiameter,
+                    position=[0,0,zs[n]]
+                )
+                collectionToAdd.add(loop)
+
+                nLoops -= 1
                 if nLoops <= 0:
                     break
+
             even = True
-            coilIntDiameter = coilIntDiameter + stepDiameter
-            
+            coilIntDiameter += stepDiameter
+
     return collectionToAdd
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 #%% ConstrucAcess function 
@@ -147,65 +171,65 @@ def constructAccess( I = 4, centralPointBetweenHelmCoils = [0,0,0], coilExtDiame
     #
     #
     vector = [[wiresStartingPoint[0],wiresStartingPoint[1], wireDiameter +  wiresStartingPoint[2]], [wiresStartingPoint[0]*relativeDistance,0, wireDiameter] ]      
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|
     # 
     # 
     vector = [vector[1], [vector[1][0], vector[1][1], vector[1][2] + halfCoillengthBetweenCoils]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|
     # |
     # |
     vector = [vector[1], [coilExtDiameter/2 - wireDiameter, vector[1][1], vector[1][2]]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|
     # | 
     # ||
     vector = [[vector[1][0], vector[1][1], vector[1][2] - wireDiameter], [vector[0][0] -wireDiameter, vector[0][1], vector[0][2] - wireDiameter]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     # going to the other side
     #  _|
     # | __
     # ||
     vector = [vector[1], [vector[1][0], vector[1][1], -vector[1][2]]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|
     # | __
     # || |
     vector = [vector[1], [coilExtDiameter/2 - wireDiameter, vector[1][1], vector[1][2]]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|
     # | __ |
     # || ||
     vector = [[vector[1][0], vector[1][1], vector[1][2] - wireDiameter], [vector[0][0] + wireDiameter, vector[0][1], vector[0][2] - wireDiameter]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _|  _
     # | __ |
     # || ||
     vector = [vector[1], [wiresStartingPoint[0]*relativeDistance,0, -wireDiameter]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     #  _| |_
     # | __ |
     # || ||
     vector = [[wiresStartingPoint[0]*relativeDistance,0, -wireDiameter], [wiresStartingPoint[0],wiresStartingPoint[1], -wireDiameter +  wiresStartingPoint[2]]]
-    line = magpy.source.current.Line(curr=I,vertices=vector)
-    helmCoil.addSources(line)
+    line = magpy.current.Line(curr=I,vertices=vector)
+    helmCoil.add(line)
     
     return helmCoil
 
@@ -574,7 +598,7 @@ def spiral(diameter = 2, spiralExtremities = [0,1], nPoints = 40, nTurns = 4, I 
     
     # Creating the spiral around the 'z' axis
     vertices = [[diameter/2*cos(phi[i]),diameter/2*sin(phi[i]),spiralExtremities[i]] for i in range(0,nPoints)]
-    spi = magpy.source.current.Line(curr=I,vertices=vertices, pos=referencePosition)
+    spi = magpy.current.Line(curr=I,vertices=vertices, pos=referencePosition)
     spi.rotate(startingSpiralAng,[0,0,1],anchor=referencePosition)
     
     return spi
@@ -638,12 +662,12 @@ def twistedPair(diameter = 2, nPoints = 40, nTurns = 10, I = 4, collectionToAdd 
     # Doing one spiral in the 'z' positive orientation
     spi = spiral(diameter = diameter, spiralExtremities = [spiralExtremities[0],spiralExtremities[1]], nPoints = nPoints, 
                  nTurns = nTurns, I = I, startingSpiralAng = 0, referencePosition = referencePosition)
-    collectionToAdd.addSources(spi)
+    collectionToAdd.add(spi)
 
     # Doing the second spiral in the 'z' negative orientation
     spi = spiral(diameter = diameter, spiralExtremities = [spiralExtremities[1],spiralExtremities[0]], nPoints = nPoints, 
                  nTurns = nTurns, I = I, startingSpiralAng = 180, rotationSense = -1, referencePosition = referencePosition)
-    collectionToAdd.addSources(spi)
+    collectionToAdd.add(spi)
     """
     # Doing the rotations -------------------------------------
     collectionToAdd.rotate(phi,[1,0,0],anchor=referencePosition)
