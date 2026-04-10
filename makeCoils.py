@@ -18,7 +18,8 @@ CUBE_ROD_D = 5.0         # Heavy-duty frame for industrial stability
 ANCHOR_ROD_D = 2.5       
 CAGE_NODE_DIST = 35.0    # Optimized for SiPM 45-degree field of view
 WIRE_HOLE_R = 1.0
-WINDING_TOLERANCE = 0.2 
+WIRE_D = 0.175  # same as solver
+WINDING_TOLERANCE = 0.25 * WIRE_D   # ~0.04 mm
 
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
