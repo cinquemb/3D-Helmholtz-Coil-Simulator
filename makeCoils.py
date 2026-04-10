@@ -22,9 +22,9 @@ WIRE_D = 0.175
 WINDING_TOLERANCE = 0.25 * WIRE_D   
 
 # Motor Shaft Config
-SHAFT_D = 6.0            # Standard 6mm shaft
-SHAFT_LEN = 20.0         # Length of the protrusion
-SHAFT_FLAT = 0.5         # Depth of the 'D' cut (0.5mm off the radius)
+SHAFT_D = 6.0            
+SHAFT_LEN = 20.0         
+SHAFT_FLAT = 0.5         
 
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -42,22 +42,9 @@ def make_bobbin(r, w, h):
     hole = Part.makeCylinder(WIRE_HOLE_R, FLANGE_T * 4, App.Vector(r-2, 0, h_adj/2 + FLANGE_T/2), App.Vector(1,0,0))
     return bobbin.cut(hole)
 
-def make_d_shaft(pos, direction, length, diameter, flat_depth):
-    """Creates a D-shaped shaft for motor coupling."""
-    cyl = Part.makeCylinder(diameter/2, length, pos, direction)
-    # Create a box to cut the 'flat' part of the D-shaft
-    # Offset slightly to one side of the diameter
-    flat_box = Part.makeBox(diameter, diameter, length)
-    # Position box to shave off the flat_depth
-    move_vec = App.Vector(diameter/2 - flat_depth, -diameter/2, 0)
-    flat_box.translate(move_vec)
-    # Rotate box to match shaft direction (assuming Z-up for the box logic, then transform)
-    # For simplicity in this script, we'll align it to the corner logic below
-    return cyl.cut(flat_box.moved(App.Placement(pos, App.Rotation(App.Vector(0,0,1), direction))))
-
-def create_label(text, pos, rot_axis, rot_angle):
+def create_label(text, pos, rot_axis, rot_angle, size=8.0):
     try:
-        s = Draft.make_shapestring(text, FONT_PATH, 8.0)
+        s = Draft.make_shapestring(text, FONT_PATH, size)
         s.Placement = App.Placement(pos, App.Rotation(rot_axis, rot_angle))
         extrude = Part.makeExtrude(s.Shape, App.Vector(0,0,2.0))
         extrude.translate(App.Vector(0,0,-1.0)) 
@@ -93,12 +80,10 @@ for i in range(len(corners)):
                 edge = edge.cut(rail_cut)
             all_parts.append(edge)
 
-# --- ADD MOTOR MOUNT (D-SHAFT) ---
-# Mounted on the top-right-front corner extending outwards along the X-axis
+# --- MOTOR MOUNT (D-SHAFT) ---
 motor_pos = App.Vector(h_s, h_s, h_s)
 shaft_dir = App.Vector(1, 0, 0)
 shaft = Part.makeCylinder(SHAFT_D/2, SHAFT_LEN, motor_pos, shaft_dir)
-# Create the "D" flat by cutting with a box
 flat_cutter = Part.makeBox(SHAFT_LEN, SHAFT_D, SHAFT_D/2)
 flat_cutter.translate(App.Vector(h_s, h_s - SHAFT_D/2, h_s + (SHAFT_D/2 - SHAFT_FLAT)))
 all_parts.append(shaft.cut(flat_cutter))
@@ -118,7 +103,17 @@ for t in nodes:
         if 75.0 < dist < 82.0:
             all_parts.append(Part.makeCylinder(ANCHOR_ROD_D/2, dist, t, c-t))
 
-# Labels
+# Axis Labels (X, Y, Z Direction Indicators)
+axis_labels = [
+    ('X', App.Vector(h_s - 10, 2, 2), App.Vector(0,0,1), 0),
+    ('Y', App.Vector(2, h_s - 10, 2), App.Vector(0,0,1), 90),
+    ('Z', App.Vector(2, 2, h_s - 10), App.Vector(0,1,0), -90)
+]
+for text, pos, axis, ang in axis_labels:
+    lbl = create_label(text, pos, axis, ang, size=12.0)
+    if lbl: all_parts.append(lbl)
+
+# Branding Labels
 labels = [('X-L_QUBIT', App.Vector(h_s, -15, -h_s+3), App.Vector(0,1,0), 90),
           ('Y-L_QUBIT', App.Vector(-15, h_s, -h_s+3), App.Vector(1,0,0), -90)]
 for text, pos, axis, ang in labels:
@@ -128,12 +123,12 @@ for text, pos, axis, ang in labels:
 all_parts.append(Part.makeBox(14, 14, 2, App.Vector(-7,-7,-1)))
 
 # ================= 4. FINAL FUSE =================
-print("Fusing with Motor Shaft...")
+print("Fusing all components...")
 fused = all_parts[0]
 for p in all_parts[1:]:
     fused = fused.fuse(p)
 
-obj = doc.addObject("Part::Feature", "Floquet_Motorized_Cage")
+obj = doc.addObject("Part::Feature", "Floquet_Motorized_Cage_Labeled")
 obj.Shape = fused
 doc.recompute()
-print("✅ Done! D-Shaft motor mount added to top corner.")
+print("✅ Done! D-Shaft and Directional Labels (X,Y,Z) added.")
