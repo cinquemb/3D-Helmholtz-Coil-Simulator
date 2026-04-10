@@ -10,6 +10,8 @@ np.set_printoptions(suppress=True)
 MU0 = 4*np.pi*1e-7
 MM = 1e-3
 
+#vacuum roughing pump: 3.75*10^-2 Torr: https://www.tokopedia.com/indotara-persada/set-vacuum-pump-mesin-pompa-vacuum-orion-vp-rs-1?extParam=ivf%3Dfalse%26keyword%3Droughing+pump+vacuum%26search_id%3D202603260729084734BA6F3DE83D1A8NOP%26src%3Dsearch&t_id=1774510839605&t_st=1&t_pp=search_result&t_efo=search_pure_goods_card&t_ef=goods_search&t_sm=&t_spt=search_result
+# cheaper one https://www.tokopedia.com/nw-official-shop/vacuum-pump-ac-air-vacuum-pump-single-stage-vp125-untuk-servis-isi-ulang-freon-kompresor-vakum-berkualitas-pompa-vakum-ac-1-4-pk-1732477640075741175
 #%% ---------------- CONFIG ----------------
 #https://bntechgo.com/bntechgo-34-awg-magnet-wire-enameled-copper-wire-enameled-magnet-winding-wire-5-0-lb-0-0063-diameter-1-spool-coil-red-temperature-rating-155-degrees-celsius-widely-used-for-transformers-and-inductors/
 AllCoilsWireDiameter = 0.160 + 0.015  # 0.16mm copper + ~0.015mm enamel build
@@ -18,13 +20,13 @@ wireResistance = 0.851                # Ohm/m for 34 AWG
 #AllCoilsWireDiameter = (0.56 + 0.047)*1.09  # mm
 #wireResistance = 0.07153  # Ohm/m
 
-TARGET_GRADIENT = 0.2      # T/m
+TARGET_GRADIENT = .2      # T/m
 MAX_CURRENT = 0.02         # A
 
 EVEN_LAYERS = 20
 ODD_LAYERS  = 19
 
-MIN_CLEARANCE_MM = 2.0
+MIN_CLEARANCE_MM = 3.0
 AXIS_CLEARANCE_MM = 2.0
 
 MAX_THICKNESS_RATIO = 1.5  # critical
@@ -195,10 +197,23 @@ def objective(x):
     rx, ry, rz = x[0], x[4], x[8]
     nest = max(0, rz - ry + 2.0) + max(0, ry - rx + 2.0)
 
+   # Z thickness constraint (strong)
+    rz, sz, lz, nz = x[8], x[9], x[10], x[11]
+    m_z = coil_metrics(rz, lz, x[-1], nz)
+
+    target_spacing = rz * sz
+    actual_spacing = max(target_spacing, m_z["thickness"] + MIN_CLEARANCE_MM)
+
+    # force field-limited regime (not boundary-hugging)
+    thickness_penalty = max(0, m_z["thickness"] - 0.5 * target_spacing)
+    spacing_penalty   = max(0, (m_z["thickness"] + MIN_CLEARANCE_MM) - target_spacing)
+
     return (
         20.0 * ratio_penalty +
-        1500.0 * strength +
-        10.0 * nest
+        8000.0 * strength +
+        10.0 * nest + 
+        300.0 * thickness_penalty + 
+        200.0 * spacing_penalty
     )
 
 
@@ -211,14 +226,14 @@ def optimize():
     x0 = [
         35, 1.0, 10, 20,  # X
         28, 1.0, 10, 20,  # Y
-        20, 1.0, 12, 25,  # Z
+        18, 0.7, 10, 50,  # Z
         0.02              # Shared Current (I)
     ]
 
     bounds = [
         (20, 50), (0.6, 1.5), (4, 60), (5, 100), # X
         (15, 40), (0.6, 1.5), (4, 60), (5, 100), # Y
-        (10, 30), (0.5, 1.5), (4, 80), (5, 120), # Z
+        (5, 22), (0.5, 1.5), (6, 30), (5, 100), # Z
         (0.019, 0.02)                          # Shared Current
     ]
 
