@@ -13,13 +13,18 @@ coils_data = {
 
 FLANGE_T = 2.0  
 STRUT_D = 4.0    
-CUBE_SIZE = 110.0        # Slightly larger for better SiPM focal distance
-CUBE_ROD_D = 5.0         # Heavy-duty frame for industrial stability
+CUBE_SIZE = 110.0        
+CUBE_ROD_D = 5.0         
 ANCHOR_ROD_D = 2.5       
-CAGE_NODE_DIST = 35.0    # Optimized for SiPM 45-degree field of view
+CAGE_NODE_DIST = 35.0    
 WIRE_HOLE_R = 1.0
-WIRE_D = 0.175  # same as solver
-WINDING_TOLERANCE = 0.25 * WIRE_D   # ~0.04 mm
+WIRE_D = 0.175  
+WINDING_TOLERANCE = 0.25 * WIRE_D   
+
+# Motor Shaft Config
+SHAFT_D = 6.0            # Standard 6mm shaft
+SHAFT_LEN = 20.0         # Length of the protrusion
+SHAFT_FLAT = 0.5         # Depth of the 'D' cut (0.5mm off the radius)
 
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -36,6 +41,19 @@ def make_bobbin(r, w, h):
     bobbin = body.cut(bore).cut(groove)
     hole = Part.makeCylinder(WIRE_HOLE_R, FLANGE_T * 4, App.Vector(r-2, 0, h_adj/2 + FLANGE_T/2), App.Vector(1,0,0))
     return bobbin.cut(hole)
+
+def make_d_shaft(pos, direction, length, diameter, flat_depth):
+    """Creates a D-shaped shaft for motor coupling."""
+    cyl = Part.makeCylinder(diameter/2, length, pos, direction)
+    # Create a box to cut the 'flat' part of the D-shaft
+    # Offset slightly to one side of the diameter
+    flat_box = Part.makeBox(diameter, diameter, length)
+    # Position box to shave off the flat_depth
+    move_vec = App.Vector(diameter/2 - flat_depth, -diameter/2, 0)
+    flat_box.translate(move_vec)
+    # Rotate box to match shaft direction (assuming Z-up for the box logic, then transform)
+    # For simplicity in this script, we'll align it to the corner logic below
+    return cyl.cut(flat_box.moved(App.Placement(pos, App.Rotation(App.Vector(0,0,1), direction))))
 
 def create_label(text, pos, rot_axis, rot_angle):
     try:
@@ -58,40 +76,49 @@ for axis, (r, w, h, s) in coils_data.items():
         elif axis == 'y': c.rotate(App.Vector(0,0,0), App.Vector(1,0,0), 90)
         all_parts.append(c)
 
-# Main Axial Struts (Now reaching larger cube)
+# Main Axial Struts
 h_s = CUBE_SIZE / 2.0
 all_parts.append(Part.makeCylinder(STRUT_D/2, CUBE_SIZE, App.Vector(-h_s,0,0), App.Vector(1,0,0)))
 all_parts.append(Part.makeCylinder(STRUT_D/2, CUBE_SIZE, App.Vector(0,-h_s,0), App.Vector(0,1,0)))
 all_parts.append(Part.makeCylinder(STRUT_D/2, CUBE_SIZE, App.Vector(0,0,-h_s), App.Vector(0,0,1)))
 
-# Cube Frame with SiPM Rail Slits
+# Cube Frame
 corners = [App.Vector(x, y, z) for x in [h_s, -h_s] for y in [h_s, -h_s] for z in [h_s, -h_s]]
 for i in range(len(corners)):
     for j in range(i + 1, len(corners)):
         if (corners[i] - corners[j]).Length < CUBE_SIZE + 0.1:
             edge = Part.makeCylinder(CUBE_ROD_D/2, CUBE_SIZE, corners[i], corners[j]-corners[i])
-            # Functional modification: Flatten the top/bottom edges for better SiPM mounting
             if corners[i].z == corners[j].z == h_s or corners[i].z == corners[j].z == -h_s:
                 rail_cut = Part.makeBox(CUBE_SIZE+10, 4, 2, App.Vector(-h_s-5, -2, h_s-1 if corners[i].z > 0 else -h_s-1))
                 edge = edge.cut(rail_cut)
             all_parts.append(edge)
+
+# --- ADD MOTOR MOUNT (D-SHAFT) ---
+# Mounted on the top-right-front corner extending outwards along the X-axis
+motor_pos = App.Vector(h_s, h_s, h_s)
+shaft_dir = App.Vector(1, 0, 0)
+shaft = Part.makeCylinder(SHAFT_D/2, SHAFT_LEN, motor_pos, shaft_dir)
+# Create the "D" flat by cutting with a box
+flat_cutter = Part.makeBox(SHAFT_LEN, SHAFT_D, SHAFT_D/2)
+flat_cutter.translate(App.Vector(h_s, h_s - SHAFT_D/2, h_s + (SHAFT_D/2 - SHAFT_FLAT)))
+all_parts.append(shaft.cut(flat_cutter))
 
 # SiPM-Clearance Diamond Cage
 nodes = [App.Vector(CAGE_NODE_DIST,0,0), App.Vector(-CAGE_NODE_DIST,0,0), App.Vector(0,CAGE_NODE_DIST,0), App.Vector(0,-CAGE_NODE_DIST,0), App.Vector(0,0,CAGE_NODE_DIST), App.Vector(0,0,-CAGE_NODE_DIST)]
 for i in range(len(nodes)):
     for j in range(i + 1, len(nodes)):
         d = (nodes[i] - nodes[j]).Length
-        if 48.0 < d < 52.0: # Connect adjacent poles
+        if 48.0 < d < 52.0:
             all_parts.append(Part.makeCylinder(2.5/2, d, nodes[i], nodes[j] - nodes[i]))
 
-# Star Anchors (Rigidity for Floquet Drive)
+# Star Anchors
 for t in nodes:
     for c in corners:
         dist = (t-c).Length
         if 75.0 < dist < 82.0:
             all_parts.append(Part.makeCylinder(ANCHOR_ROD_D/2, dist, t, c-t))
 
-# Labels & Central Plate
+# Labels
 labels = [('X-L_QUBIT', App.Vector(h_s, -15, -h_s+3), App.Vector(0,1,0), 90),
           ('Y-L_QUBIT', App.Vector(-15, h_s, -h_s+3), App.Vector(1,0,0), -90)]
 for text, pos, axis, ang in labels:
@@ -101,12 +128,12 @@ for text, pos, axis, ang in labels:
 all_parts.append(Part.makeBox(14, 14, 2, App.Vector(-7,-7,-1)))
 
 # ================= 4. FINAL FUSE =================
-print("Fusing SiPM-Optimized Floquet Rig...")
+print("Fusing with Motor Shaft...")
 fused = all_parts[0]
 for p in all_parts[1:]:
     fused = fused.fuse(p)
 
-obj = doc.addObject("Part::Feature", "Floquet_SiPM_Cage")
+obj = doc.addObject("Part::Feature", "Floquet_Motorized_Cage")
 obj.Shape = fused
 doc.recompute()
-print("✅ Done! Frame is optimized for SiPM imaging and Floquet drive.")
+print("✅ Done! D-Shaft motor mount added to top corner.")
