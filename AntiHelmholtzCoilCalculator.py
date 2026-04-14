@@ -17,7 +17,33 @@ MM = 1e-3
 AllCoilsWireDiameter = 0.160 + 0.015  # 0.16mm copper + ~0.015mm enamel build
 wireResistance = 0.851                # Ohm/m for 34 AWG
 
+
+
+
+#this is $35 for 4 channels with 3.6 x 3.6 mm^2 sensitive area... https://www.alibaba.com/product-detail/AFBR-S4N44P044M-New-and-original-Integrated_1601376707497.html?spm=a2700.prosearch.normal_offer.d_image.353d67afpfiP84&priceId=c1a8967ab6ef45bb8066adf55c3dde5e
 #AllCoilsWireDiameter = (0.56 + 0.047)*1.09  # mm
+#https://www.broadcom.com/products/optical-sensors/silicon-photomultiplier-sipm/high-performance-sipm-nuv-mt
+#Still need to use a tophat DOE in the ~1cm cavity in order to sloww the calcim atoms dowm
+#https://www.taiheiboeki.co.jp/en/laser-optics/holoor/top-hat_doe/list/#block2759-3515
+# 850- >litro -> 844 -> shg -> 422nm --> laser signal stabilizer -> pass thrue 405 DOE -> split into 3 paths
+#https://www.alibaba.com/product-detail/The-multimode-850nm-500mw-laser-diode_1601428629520.html?spm=a2700.galleryofferlist.normal_offer.d_title.5dc613a0DD74kO&priceId=1e2e65de941d48c0afc617f1c457d5d8
+'''
+Model   Wavelength
+ (nm)   Diameter of incidence
+ (mm)   pattern
+ Shape  Divergence angle
+ θf (mRad)  Pattern Size
+ (μm) @EFL100mm Remarks
+ST-320-SYA  405 20  circular    0.04    4   Small T
+~$3k
+'''
+
+'''
+
+drive the x, and y coilses with the floquet drive... but y shifted by 90 deg
+'''
+
+
 #wireResistance = 0.07153  # Ohm/m
 
 TARGET_GRADIENT = .2      # T/m
