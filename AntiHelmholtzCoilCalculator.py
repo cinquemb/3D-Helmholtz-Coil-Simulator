@@ -25,7 +25,7 @@ wireResistance = 0.851                # Ohm/m for 34 AWG
 #https://www.broadcom.com/products/optical-sensors/silicon-photomultiplier-sipm/high-performance-sipm-nuv-mt
 #Still need to use a tophat DOE in the ~1cm cavity in order to sloww the calcim atoms dowm
 #https://www.taiheiboeki.co.jp/en/laser-optics/holoor/top-hat_doe/list/#block2759-3515
-# 850- >litro -> 844 -> shg -> 422nm --> laser signal stabilizer -> pass thrue 405 DOE -> split into 3 paths
+# 6 850 beam combine to 1 850 nm- >litro -> 844 -> shg -> 422nm --> laser signal stabilizer -> pass thrue 405 DOE -> split into 3 paths with 3 mirrors
 #https://www.alibaba.com/product-detail/The-multimode-850nm-500mw-laser-diode_1601428629520.html?spm=a2700.galleryofferlist.normal_offer.d_title.5dc613a0DD74kO&priceId=1e2e65de941d48c0afc617f1c457d5d8
 '''
 Model   Wavelength
@@ -40,7 +40,7 @@ ST-320-SYA  405 20  circular    0.04    4   Small T
 
 '''
 
-drive the x, and y coilses with the floquet drive... but y shifted by 90 deg
+2 more non static gradient coils -> drive the x, and y coils with the floquet drive... but y shifted by 90 deg
 '''
 
 
