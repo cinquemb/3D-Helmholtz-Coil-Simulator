@@ -4,6 +4,8 @@ import Draft
 
 doc = App.ActiveDocument if App.ActiveDocument else App.newDocument()
 
+#50% infill, need to bake (if doing so, scale up by 2% before printing)
+
 # ================= 1. CALCULATOR SPECS & CONFIG =================
 coils_data = {
     'x': [35.242/2, 1.671, 2.999, 52.864/2],
@@ -54,14 +56,27 @@ def create_label(text, pos, rot_axis, rot_angle, size=8.0):
 # ================= 3. CONSTRUCTION =================
 all_parts = []
 
-# Coils
+# Coils construction with "Nesting" logic
 for axis, (r, w, h, s) in coils_data.items():
-    base = make_bobbin(r, w, h)
-    for side in [1, -1]:
-        c = base.copy(); c.translate(App.Vector(0, 0, s * side))
+    # Create separate base for the middle loop to avoid collision
+    r_mid = r - 4.0 if axis == 'x' else r + 4.0 
+    base_outer = make_bobbin(r, w, h)
+    base_mid = make_bobbin(r_mid, w, h)
+
+    for side in [1, 0, -1]:
+        if side == 0:
+            if axis == 'z': continue # Z usually stays pure Anti-Helmholtz
+            c = base_mid.copy()
+        else:
+            c = base_outer.copy()
+            
+        c.translate(App.Vector(0, 0, s * side))
+        
         if axis == 'x': c.rotate(App.Vector(0,0,0), App.Vector(0,1,0), 90)
         elif axis == 'y': c.rotate(App.Vector(0,0,0), App.Vector(1,0,0), 90)
+
         all_parts.append(c)
+
 
 # Main Axial Struts
 h_s = CUBE_SIZE / 2.0

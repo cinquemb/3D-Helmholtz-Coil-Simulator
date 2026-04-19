@@ -295,7 +295,26 @@ print(f"Center field = {B0}")
 
 #%% ---------------- FULL BUILD INSTRUCTIONS ----------------
 
-def print_coil_build(axis, r, s, I, loops, n_layers):
+
+def calculate_inductance(turns, mean_radius_mm, width_mm, thickness_mm):
+    """
+    Wheeler's formula for multi-layer solenoid inductance.
+    L (uH) = (31.6 * N^2 * r1^2) / (6*r1 + 9*l + 10*d)
+    where r1 = mean radius, l = axial length (thickness), d = radial depth (width)
+    Converted to metric (mm).
+    """
+    # Convert mm to meters for SI L calculation, or use mm-optimized Wheeler
+    # r, l, d in mm -> L in uH
+    r = mean_radius_mm
+    l = thickness_mm # Axial height
+    d = width_mm     # Radial width
+    
+    numerator = 31.6 * (turns**2) * (r**2)
+    denominator = (6 * r) + (9 * l) + (10 * d)
+    
+    return (numerator / denominator) / 1e6 # Return in Henrys
+
+def print_coil_build(axis, r, s, I, loops, n_layers, floquet_freq_hz=65536):
     # Split layers into even/odd for the winding logic
     even_layers = int(np.ceil(n_layers / 2))
     odd_layers = int(n_layers // 2)
@@ -305,6 +324,16 @@ def print_coil_build(axis, r, s, I, loops, n_layers):
 
     # Use the updated metrics function
     m = coil_metrics(r, loops, I, n_layers)
+
+    # Calculate Mean Radius for Inductance
+    mean_r = (r + m['outer_d'])/4.0 # (Inner_R + Outer_R) / 2
+    
+    # Calculate Inductance
+    L = calculate_inductance(m['turns'], mean_r, m['width'], m['thickness'])
+    
+    # Calculate Phase Lag at Floquet Frequency: theta = atan(omega*L / R)
+    omega = 2 * np.pi * floquet_freq_hz
+    phase_lag_deg = np.degrees(np.arctan2(omega * L, m['R']))
     
     min_spacing = m["thickness"] + MIN_CLEARANCE_MM
     spacing = max(r * s, min_spacing)
@@ -329,10 +358,11 @@ def print_coil_build(axis, r, s, I, loops, n_layers):
     print(f"Odd layers:  {odd_layers} × {odd_turns} turns")
     print(f"Total turns per coil: {m['turns']}")
 
-    print("\n--- Electrical ---")
-    print(f"Current: {I*1000:.3f} mA")
-    print(f"Resistance: {m['R']:.4f} Ohm")
-    print(f"Power: {m['P']:.6f} W")
+    print(f"\n--- Electrical & Magnetic ---")
+    print(f"Current:      {I*1000:.3f} mA")
+    print(f"Resistance:   {m['R']:.4f} Ohm")
+    print(f"Inductance:   {L*1000:.4f} mH")  # <--- NEW
+    print(f"Lag @ {floquet_freq_hz/1000:.1f}kHz: {phase_lag_deg:.2f}°") # <--- NEW
     print(f"Voltage Drop: {I * m['R']:.3f} V") # Crucial for your 4-20mA driver
 
     print("\n--- Wire ---")
