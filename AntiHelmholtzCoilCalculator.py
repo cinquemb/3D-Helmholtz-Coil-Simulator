@@ -392,5 +392,19 @@ print_coil_build('y', p[1,0], p[1,1], I_shared, p[1,2], p[1,3])
 print_coil_build('z', p[2,0], p[2,1], I_shared, p[2,2], p[2,3])
 
 
+#%% --- DRIVE COIL CHARACTERIZATION (The 3rd Loops) ---
+# We assume the 3rd loop has the same radius as the static ones 
+# but only 3 turns in a single layer at the center (s=0).
+
+print("\n" + "="*20 + " RF DRIVE COILS (3rd LOOPS) " + "="*20)
+
+# Drive X (3 turns, center)
+print_coil_build('x_drive', p[0,0], 0, I_shared, loops=3, n_layers=1)
+
+# Drive Y (3 turns, center)
+print_coil_build('y_drive', p[1,0], 0, I_shared, loops=3, n_layers=1)
+
+
+
 #%% display
 #system.show()
